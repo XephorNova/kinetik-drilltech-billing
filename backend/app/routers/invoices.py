@@ -170,12 +170,33 @@ async def get_invoice(
     return await invoice_doc_to_response(db, doc)
 
 
+@router.get("/{invoice_id}/children", response_model=list[InvoiceResponse])
+async def list_children(
+    invoice_id: str, db=Depends(get_db), _user: str = Depends(get_current_user)
+):
+    oid = _parse_object_id(invoice_id)
+    parent = await db.invoices.find_one({"_id": oid})
+    if not parent:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found")
+    children = []
+    async for doc in db.invoices.find({"parent_id": invoice_id}).sort("created_at", 1):
+        children.append(await invoice_doc_to_response(db, doc))
+    return children
+
+
 @router.delete("/{invoice_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_invoice(
     invoice_id: str, db=Depends(get_db), _user: str = Depends(get_current_user)
 ):
     oid = _parse_object_id(invoice_id)
-    result = await db.invoices.delete_one({"_id": oid})
-    if result.deleted_count == 0:
+    doc = await db.invoices.find_one({"_id": oid})
+    if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found")
+    if doc.get("parent_id") is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete a child invoice directly; delete its parent instead",
+        )
+    await db.invoices.delete_many({"parent_id": invoice_id})
+    await db.invoices.delete_one({"_id": oid})
     await db.payments.delete_many({"invoice_id": invoice_id})

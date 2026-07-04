@@ -281,3 +281,100 @@ async def test_child_invoice_response_shows_paid_status(authed_client, mock_db):
     assert body["paid_total"] == 11800.0
     assert body["balance"] == 0.0
     assert body["parent_id"] == parent_id
+
+
+async def test_list_children_empty_initially(authed_client):
+    client_id = await _setup_company_and_client(authed_client)
+    payload = {
+        "invoice_no": "202607/SKW/KDT",
+        "invoice_date": "2026-07-05",
+        "due_date": "2026-07-12",
+        "client_id": client_id,
+        "line_items": [
+            {"description": "Bore hole no 1", "hsn_sac": "995432", "gst_rate": 18.0, "quantity": 10, "rate": 1000}
+        ],
+    }
+    create_resp = await authed_client.post("/invoices", json=payload)
+    parent_id = create_resp.json()["id"]
+
+    resp = await authed_client.get(f"/invoices/{parent_id}/children")
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+async def test_delete_invoice_cascades_to_children_and_payments(authed_client, mock_db):
+    client_id = await _setup_company_and_client(authed_client)
+    payload = {
+        "invoice_no": "202607/SKW/KDT",
+        "invoice_date": "2026-07-05",
+        "due_date": "2026-07-12",
+        "client_id": client_id,
+        "line_items": [
+            {"description": "Bore hole no 1", "hsn_sac": "995432", "gst_rate": 18.0, "quantity": 10, "rate": 1000}
+        ],
+    }
+    create_resp = await authed_client.post("/invoices", json=payload)
+    parent_id = create_resp.json()["id"]
+
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    child_result = await mock_db.invoices.insert_one({
+        "invoice_no": "202607/SKW/KDT/C1",
+        "invoice_date": "2026-07-10",
+        "due_date": "2026-07-12",
+        "client_id": client_id,
+        "client_snapshot": create_resp.json()["client_snapshot"],
+        "line_items": create_resp.json()["remaining_line_items"],
+        "tax_type": "CGST_SGST",
+        "subtotal": 10000.0, "cgst_total": 900.0, "sgst_total": 900.0, "igst_total": 0.0,
+        "grand_total": 11800.0, "gst_ratio": 0.152542,
+        "parent_id": parent_id,
+        "remaining_line_items": None,
+        "created_at": now, "updated_at": now,
+    })
+    await mock_db.payments.insert_one({
+        "invoice_id": parent_id, "amount": 11800.0, "date": "2026-07-10", "mode": "Cash",
+        "note": None, "child_invoice_id": str(child_result.inserted_id), "created_at": now,
+    })
+
+    delete_resp = await authed_client.delete(f"/invoices/{parent_id}")
+    assert delete_resp.status_code == 204
+
+    assert await mock_db.invoices.find_one({"_id": child_result.inserted_id}) is None
+    assert await mock_db.payments.count_documents({"invoice_id": parent_id}) == 0
+
+
+async def test_cannot_delete_child_invoice_directly(authed_client, mock_db):
+    client_id = await _setup_company_and_client(authed_client)
+    payload = {
+        "invoice_no": "202607/SKW/KDT",
+        "invoice_date": "2026-07-05",
+        "due_date": "2026-07-12",
+        "client_id": client_id,
+        "line_items": [
+            {"description": "Bore hole no 1", "hsn_sac": "995432", "gst_rate": 18.0, "quantity": 10, "rate": 1000}
+        ],
+    }
+    create_resp = await authed_client.post("/invoices", json=payload)
+    parent_id = create_resp.json()["id"]
+
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    child_result = await mock_db.invoices.insert_one({
+        "invoice_no": "202607/SKW/KDT/C1",
+        "invoice_date": "2026-07-10",
+        "due_date": "2026-07-12",
+        "client_id": client_id,
+        "client_snapshot": create_resp.json()["client_snapshot"],
+        "line_items": create_resp.json()["remaining_line_items"],
+        "tax_type": "CGST_SGST",
+        "subtotal": 10000.0, "cgst_total": 900.0, "sgst_total": 900.0, "igst_total": 0.0,
+        "grand_total": 11800.0, "gst_ratio": 0.152542,
+        "parent_id": parent_id,
+        "remaining_line_items": None,
+        "created_at": now, "updated_at": now,
+    })
+    child_id = str(child_result.inserted_id)
+
+    delete_resp = await authed_client.delete(f"/invoices/{child_id}")
+    assert delete_resp.status_code == 400
