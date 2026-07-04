@@ -1,7 +1,6 @@
 import csv
 import io
 
-from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 
@@ -34,31 +33,21 @@ def _month_bounds(month: str) -> tuple[str, str]:
 async def _gst_report_rows(db, month: str) -> list[dict]:
     start, end = _month_bounds(month)
     rows = []
-    async for payment in db.payments.find({"date": {"$gte": start, "$lt": end}}).sort("date", 1):
-        invoice = await db.invoices.find_one({"_id": ObjectId(payment["invoice_id"])})
-        if not invoice:
-            continue
-        gst_portion = round(payment["amount"] * invoice["gst_ratio"], 2)
-        taxable_portion = round(payment["amount"] - gst_portion, 2)
-        if invoice["tax_type"] == "CGST_SGST":
-            cgst = round(gst_portion / 2, 2)
-            sgst = round(gst_portion - cgst, 2)
-            igst = 0.0
-        else:
-            cgst = 0.0
-            sgst = 0.0
-            igst = gst_portion
+    query = {"parent_id": {"$ne": None}, "invoice_date": {"$gte": start, "$lt": end}}
+    async for child in db.invoices.find(query).sort("invoice_date", 1):
         rows.append(
             {
-                "invoice_no": invoice["invoice_no"],
-                "client_name": invoice["client_snapshot"]["name"],
-                "date": payment["date"],
-                "amount": payment["amount"],
-                "taxable_portion": taxable_portion,
-                "cgst": cgst,
-                "sgst": sgst,
-                "igst": igst,
-                "gst_portion": gst_portion,
+                "invoice_no": child["invoice_no"],
+                "client_name": child["client_snapshot"]["name"],
+                "date": child["invoice_date"],
+                "amount": child["grand_total"],
+                "taxable_portion": child["subtotal"],
+                "cgst": child["cgst_total"],
+                "sgst": child["sgst_total"],
+                "igst": child["igst_total"],
+                "gst_portion": round(
+                    child["cgst_total"] + child["sgst_total"] + child["igst_total"], 2
+                ),
             }
         )
     return rows
