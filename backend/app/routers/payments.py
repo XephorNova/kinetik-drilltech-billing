@@ -47,9 +47,10 @@ async def add_payment(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found")
 
     now = datetime.now(timezone.utc)
+    amount = round(payload.amount, 2)
     doc = {
         "invoice_id": invoice_id,
-        "amount": payload.amount,
+        "amount": amount,
         "date": payload.date.isoformat(),
         "mode": payload.mode,
         "note": payload.note,
@@ -59,7 +60,7 @@ async def add_payment(
     return PaymentResponse(
         id=str(result.inserted_id),
         invoice_id=invoice_id,
-        amount=payload.amount,
+        amount=amount,
         date=payload.date,
         mode=payload.mode,
         note=payload.note,
