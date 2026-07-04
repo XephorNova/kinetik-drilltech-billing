@@ -75,3 +75,18 @@ def test_raises_when_no_remaining_items():
         assert False, "expected ValueError"
     except ValueError:
         pass
+
+
+def test_items_after_the_split_point_are_carried_through_untouched():
+    items = [
+        _item("Bore hole no 1", "995432", 18.0, 10, 1000),   # total 11800
+        _item("Bore hole no 2", "995432", 18.0, 5, 2000),    # total 11800
+        _item("Bore hole no 3", "995432", 18.0, 2, 500),     # total 1180
+    ]
+    consumed, updated = split_remaining_items(items, 15000.0)
+    assert len(consumed) == 2  # item 1 whole, item 2 partially split
+    assert len(updated) == 2   # item 2's leftover, plus item 3 untouched
+    untouched = [u for u in updated if u["description"] == "Bore hole no 3"]
+    assert len(untouched) == 1
+    assert untouched[0]["total"] == 1180.0
+    assert untouched[0] is not items[2]

@@ -13,7 +13,7 @@ def split_remaining_items(
 
     for item in remaining_line_items:
         if split_done:
-            updated.append(item)
+            updated.append(dict(item))
             continue
 
         if round(running_total + item["total"], 2) <= target:
