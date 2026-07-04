@@ -16,7 +16,16 @@ def _month_bounds(month: str) -> tuple[str, str]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="month must be in YYYY-MM format"
         )
-    year, mon = int(month[:4]), int(month[5:7])
+    try:
+        year, mon = int(month[:4]), int(month[5:7])
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="month must be in YYYY-MM format"
+        )
+    if not (1 <= mon <= 12):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="month must be in YYYY-MM format"
+        )
     start = f"{month}-01"
     end = f"{year + 1}-01-01" if mon == 12 else f"{year}-{mon + 1:02d}-01"
     return start, end

@@ -99,3 +99,13 @@ async def test_gst_report_csv_download(authed_client):
 async def test_gst_report_rejects_bad_month_format(authed_client):
     resp = await authed_client.get("/reports/gst", params={"month": "2026-7"})
     assert resp.status_code == 400
+
+
+async def test_gst_report_rejects_out_of_range_month(authed_client):
+    resp = await authed_client.get("/reports/gst", params={"month": "2026-13"})
+    assert resp.status_code == 400
+
+
+async def test_gst_report_rejects_non_numeric_month(authed_client):
+    resp = await authed_client.get("/reports/gst", params={"month": "abcd-ef"})
+    assert resp.status_code == 400
