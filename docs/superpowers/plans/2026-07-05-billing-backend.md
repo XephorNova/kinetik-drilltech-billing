@@ -13,7 +13,7 @@
 - Single company profile, single admin user — no multi-tenant support, no user-management endpoints.
 - No outbound email sending.
 - No server-side PDF or HTML rendering — this backend is a pure JSON API (PDF generation is entirely client-side, covered by the separate frontend plan).
-- All routes require a valid JWT (httpOnly cookie) except `POST /auth/login` and `GET /health`.
+- All routes require a valid JWT (httpOnly cookie) except `POST /auth/login`, `POST /auth/logout`, and `GET /health`. Logout is intentionally left unauthenticated so a client with an expired/invalid token can still clear its cookie.
 - Overpayment must be allowed — never reject a payment for exceeding the invoice's remaining balance.
 - All money values rounded to 2 decimal places; `gst_ratio` rounded to 6 decimal places internally.
 - Dates (`invoice_date`, `due_date`, payment `date`) are stored in MongoDB as ISO `YYYY-MM-DD` strings (not BSON dates), so lexicographic sort order matches chronological order and Pydantic can parse them back into `date` fields on the way out.
