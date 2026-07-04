@@ -18,6 +18,10 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       ADMIN_USERNAME: ${ADMIN_USERNAME}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      # Set to "true" once served over HTTPS so the auth cookie requires a secure connection
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      # Comma-separated list of allowed frontend origins for CORS
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
     ports:
       - "8000:8000"
 

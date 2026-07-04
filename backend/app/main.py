@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.config import settings
 from app.auth.router import router as auth_router
 from app.routers.company import router as company_router
 from app.routers.clients import router as clients_router
@@ -12,7 +13,7 @@ app = FastAPI(title="Kinetik Drilltech Billing API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=[origin.strip() for origin in settings.CORS_ORIGINS.split(",")],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

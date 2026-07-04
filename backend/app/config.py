@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     JWT_EXPIRE_MINUTES: int = 1440
     ADMIN_USERNAME: str
     ADMIN_PASSWORD: str
+    COOKIE_SECURE: bool = False
+    CORS_ORIGINS: str = "http://localhost:5173"
 
 
 settings = Settings()
