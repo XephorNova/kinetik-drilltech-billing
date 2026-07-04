@@ -20,27 +20,30 @@ def _parse_object_id(invoice_id: str) -> ObjectId:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found")
 
 
-async def _compute_payment_status(db, invoice_id: str, grand_total: float):
+async def _compute_parent_status(db, invoice_id: str, grand_total: float):
     paid_total = 0.0
-    async for p in db.payments.find({"invoice_id": invoice_id}):
-        paid_total += p["amount"]
+    async for child in db.invoices.find({"parent_id": invoice_id}):
+        paid_total += child["grand_total"]
     paid_total = round(paid_total, 2)
     balance = round(grand_total - paid_total, 2)
     if paid_total <= 0:
         status_ = "unpaid"
     elif paid_total < grand_total:
         status_ = "partial"
-    elif paid_total == grand_total:
-        status_ = "paid"
     else:
-        status_ = "overpaid"
+        status_ = "paid"
     return paid_total, balance, status_
 
 
-async def _doc_to_response(db, doc: dict) -> InvoiceResponse:
-    paid_total, balance, status_ = await _compute_payment_status(
-        db, str(doc["_id"]), doc["grand_total"]
-    )
+async def invoice_doc_to_response(db, doc: dict) -> InvoiceResponse:
+    if doc.get("parent_id") is not None:
+        paid_total = doc["grand_total"]
+        balance = 0.0
+        status_ = "paid"
+    else:
+        paid_total, balance, status_ = await _compute_parent_status(
+            db, str(doc["_id"]), doc["grand_total"]
+        )
     return InvoiceResponse(
         id=str(doc["_id"]),
         invoice_no=doc["invoice_no"],
@@ -56,6 +59,8 @@ async def _doc_to_response(db, doc: dict) -> InvoiceResponse:
         igst_total=doc["igst_total"],
         grand_total=doc["grand_total"],
         gst_ratio=doc["gst_ratio"],
+        parent_id=doc.get("parent_id"),
+        remaining_line_items=doc.get("remaining_line_items"),
         paid_total=paid_total,
         balance=balance,
         status=status_,
@@ -88,7 +93,7 @@ async def list_invoices(
     db=Depends(get_db),
     _user: str = Depends(get_current_user),
 ):
-    query: dict = {}
+    query: dict = {"parent_id": None}
     if client_id:
         query["client_id"] = client_id
     if date_from or date_to:
@@ -100,7 +105,7 @@ async def list_invoices(
 
     results = []
     async for doc in db.invoices.find(query).sort("invoice_date", -1):
-        response = await _doc_to_response(db, doc)
+        response = await invoice_doc_to_response(db, doc)
         if status_filter and response.status != status_filter:
             continue
         results.append(response)
@@ -144,12 +149,14 @@ async def create_invoice(
         "line_items": line_items_computed,
         "tax_type": tax_type,
         **totals,
+        "parent_id": None,
+        "remaining_line_items": [dict(li) for li in line_items_computed],
         "created_at": now,
         "updated_at": now,
     }
     result = await db.invoices.insert_one(doc)
     doc["_id"] = result.inserted_id
-    return await _doc_to_response(db, doc)
+    return await invoice_doc_to_response(db, doc)
 
 
 @router.get("/{invoice_id}", response_model=InvoiceResponse)
@@ -160,7 +167,7 @@ async def get_invoice(
     doc = await db.invoices.find_one({"_id": oid})
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found")
-    return await _doc_to_response(db, doc)
+    return await invoice_doc_to_response(db, doc)
 
 
 @router.delete("/{invoice_id}", status_code=status.HTTP_204_NO_CONTENT)

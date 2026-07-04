@@ -51,8 +51,10 @@ class InvoiceResponse(BaseModel):
     igst_total: float
     grand_total: float
     gst_ratio: float
+    parent_id: str | None
+    remaining_line_items: list[LineItemComputed] | None
     paid_total: float
     balance: float
-    status: Literal["unpaid", "partial", "paid", "overpaid"]
+    status: Literal["unpaid", "partial", "paid"]
     created_at: datetime
     updated_at: datetime

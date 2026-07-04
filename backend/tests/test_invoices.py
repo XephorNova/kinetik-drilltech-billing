@@ -147,3 +147,137 @@ async def test_create_invoice_unknown_client_returns_404(authed_client):
     }
     resp = await authed_client.post("/invoices", json=payload)
     assert resp.status_code == 404
+
+
+async def test_create_invoice_sets_parent_id_none_and_remaining_line_items(authed_client):
+    client_id = await _setup_company_and_client(authed_client)
+    payload = {
+        "invoice_no": "202607/SKW/KDT",
+        "invoice_date": "2026-07-05",
+        "due_date": "2026-07-12",
+        "client_id": client_id,
+        "line_items": [
+            {"description": "Bore hole no 1", "hsn_sac": "995432", "gst_rate": 18.0, "quantity": 10, "rate": 1000}
+        ],
+    }
+    resp = await authed_client.post("/invoices", json=payload)
+    body = resp.json()
+    assert body["parent_id"] is None
+    assert len(body["remaining_line_items"]) == 1
+    assert body["remaining_line_items"][0]["total"] == 11800.0
+
+
+async def test_list_invoices_excludes_children(authed_client, mock_db):
+    client_id = await _setup_company_and_client(authed_client)
+    payload = {
+        "invoice_no": "202607/SKW/KDT",
+        "invoice_date": "2026-07-05",
+        "due_date": "2026-07-12",
+        "client_id": client_id,
+        "line_items": [
+            {"description": "Bore hole no 1", "hsn_sac": "995432", "gst_rate": 18.0, "quantity": 10, "rate": 1000}
+        ],
+    }
+    create_resp = await authed_client.post("/invoices", json=payload)
+    parent_id = create_resp.json()["id"]
+
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    await mock_db.invoices.insert_one({
+        "invoice_no": "202607/SKW/KDT/C1",
+        "invoice_date": "2026-07-10",
+        "due_date": "2026-07-12",
+        "client_id": client_id,
+        "client_snapshot": create_resp.json()["client_snapshot"],
+        "line_items": create_resp.json()["remaining_line_items"],
+        "tax_type": "CGST_SGST",
+        "subtotal": 10000.0, "cgst_total": 900.0, "sgst_total": 900.0, "igst_total": 0.0,
+        "grand_total": 11800.0, "gst_ratio": 0.152542,
+        "parent_id": parent_id,
+        "remaining_line_items": None,
+        "created_at": now, "updated_at": now,
+    })
+
+    list_resp = await authed_client.get("/invoices")
+    assert list_resp.status_code == 200
+    ids = [inv["id"] for inv in list_resp.json()]
+    assert parent_id in ids
+    assert len(list_resp.json()) == 1
+
+
+async def test_invoice_status_derived_from_child_invoices(authed_client, mock_db):
+    client_id = await _setup_company_and_client(authed_client)
+    payload = {
+        "invoice_no": "202607/SKW/KDT",
+        "invoice_date": "2026-07-05",
+        "due_date": "2026-07-12",
+        "client_id": client_id,
+        "line_items": [
+            {"description": "Bore hole no 1", "hsn_sac": "995432", "gst_rate": 18.0, "quantity": 10, "rate": 1000}
+        ],
+    }
+    create_resp = await authed_client.post("/invoices", json=payload)
+    parent_id = create_resp.json()["id"]
+
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    await mock_db.invoices.insert_one({
+        "invoice_no": "202607/SKW/KDT/C1",
+        "invoice_date": "2026-07-10",
+        "due_date": "2026-07-12",
+        "client_id": client_id,
+        "client_snapshot": create_resp.json()["client_snapshot"],
+        "line_items": create_resp.json()["remaining_line_items"],
+        "tax_type": "CGST_SGST",
+        "subtotal": 5000.0, "cgst_total": 450.0, "sgst_total": 450.0, "igst_total": 0.0,
+        "grand_total": 5900.0, "gst_ratio": 0.152542,
+        "parent_id": parent_id,
+        "remaining_line_items": None,
+        "created_at": now, "updated_at": now,
+    })
+
+    get_resp = await authed_client.get(f"/invoices/{parent_id}")
+    body = get_resp.json()
+    assert body["paid_total"] == 5900.0
+    assert body["balance"] == 5900.0
+    assert body["status"] == "partial"
+
+
+async def test_child_invoice_response_shows_paid_status(authed_client, mock_db):
+    client_id = await _setup_company_and_client(authed_client)
+    payload = {
+        "invoice_no": "202607/SKW/KDT",
+        "invoice_date": "2026-07-05",
+        "due_date": "2026-07-12",
+        "client_id": client_id,
+        "line_items": [
+            {"description": "Bore hole no 1", "hsn_sac": "995432", "gst_rate": 18.0, "quantity": 10, "rate": 1000}
+        ],
+    }
+    create_resp = await authed_client.post("/invoices", json=payload)
+    parent_id = create_resp.json()["id"]
+
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    child_result = await mock_db.invoices.insert_one({
+        "invoice_no": "202607/SKW/KDT/C1",
+        "invoice_date": "2026-07-10",
+        "due_date": "2026-07-12",
+        "client_id": client_id,
+        "client_snapshot": create_resp.json()["client_snapshot"],
+        "line_items": create_resp.json()["remaining_line_items"],
+        "tax_type": "CGST_SGST",
+        "subtotal": 10000.0, "cgst_total": 900.0, "sgst_total": 900.0, "igst_total": 0.0,
+        "grand_total": 11800.0, "gst_ratio": 0.152542,
+        "parent_id": parent_id,
+        "remaining_line_items": None,
+        "created_at": now, "updated_at": now,
+    })
+    child_id = str(child_result.inserted_id)
+
+    get_resp = await authed_client.get(f"/invoices/{child_id}")
+    body = get_resp.json()
+    assert body["status"] == "paid"
+    assert body["paid_total"] == 11800.0
+    assert body["balance"] == 0.0
+    assert body["parent_id"] == parent_id
