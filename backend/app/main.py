@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.auth.router import router as auth_router
 from app.routers.company import router as company_router
 from app.routers.clients import router as clients_router
+from app.routers.invoices import router as invoices_router
 
 app = FastAPI(title="Kinetik Drilltech Billing API")
 
@@ -18,6 +19,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(company_router)
 app.include_router(clients_router)
+app.include_router(invoices_router)
 
 
 @app.get("/health")
