@@ -3,10 +3,13 @@ import { useNavigate, useParams, Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { PDFDownloadLink } from "@react-pdf/renderer";
 import { useInvoice, useInvoiceChildren, useDeleteInvoice } from "../api/invoices";
 import { useRecordPayment } from "../api/payments";
+import { useCompanyProfile } from "../api/company";
 import { ApiError } from "../api/client";
 import { StatusBadge } from "../components/StatusBadge";
+import { InvoicePDF } from "../components/InvoicePDF";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { Label } from "../components/ui/Label";
@@ -32,6 +35,8 @@ export function InvoiceDetailPage() {
   const { data: invoice, isLoading } = useInvoice(id);
   const isParent = invoice ? invoice.parent_id === null : false;
   const { data: children } = useInvoiceChildren(isParent ? id : "");
+  const { data: company } = useCompanyProfile();
+  const { data: parentInvoice } = useInvoice(invoice?.parent_id ?? "");
   const recordPayment = useRecordPayment(id);
   const deleteInvoice = useDeleteInvoice();
   const [paymentError, setPaymentError] = useState<string | null>(null);
@@ -72,13 +77,21 @@ export function InvoiceDetailPage() {
         <CardHeader className="flex items-center justify-between">
           <div>
             <CardTitle>{invoice.invoice_no}</CardTitle>
-            {invoice.parent_id && (
+            {invoice.parent_id && parentInvoice && (
               <Link to={`/invoices/${invoice.parent_id}`} className="text-sm text-slate-500 hover:underline">
-                Ref: Parent Invoice
+                Ref: Parent Invoice {parentInvoice.invoice_no}
               </Link>
             )}
           </div>
           <div className="flex items-center gap-3">
+            {company && (
+              <PDFDownloadLink
+                document={<InvoicePDF invoice={invoice} company={company} parentInvoiceNo={parentInvoice?.invoice_no} />}
+                fileName={`${invoice.invoice_no.replace(/\//g, "-")}.pdf`}
+              >
+                {({ loading }) => <Button variant="outline">{loading ? "Preparing…" : "Download PDF"}</Button>}
+              </PDFDownloadLink>
+            )}
             {isParent && <StatusBadge status={invoice.status} />}
             {isParent && (
               <Button variant="destructive" onClick={onDelete}>
