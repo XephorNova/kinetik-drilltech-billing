@@ -28,3 +28,27 @@ export function useInvoices(filters: { clientId?: string; status?: string } = {}
     queryFn: () => apiFetch<Invoice[]>(`/invoices${query ? `?${query}` : ""}`),
   });
 }
+
+export function useInvoice(id: string) {
+  return useQuery({
+    queryKey: ["invoices", "detail", id],
+    queryFn: () => apiFetch<Invoice>(`/invoices/${id}`),
+    enabled: Boolean(id),
+  });
+}
+
+export function useInvoiceChildren(id: string) {
+  return useQuery({
+    queryKey: ["invoices", "children", id],
+    queryFn: () => apiFetch<Invoice[]>(`/invoices/${id}/children`),
+    enabled: Boolean(id),
+  });
+}
+
+export function useDeleteInvoice() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiFetch<void>(`/invoices/${id}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["invoices"] }),
+  });
+}
