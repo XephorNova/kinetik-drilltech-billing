@@ -6,6 +6,7 @@ import { ClientsPage } from "./pages/ClientsPage";
 import { InvoiceCreatePage } from "./pages/InvoiceCreatePage";
 import { InvoiceListPage } from "./pages/InvoiceListPage";
 import { InvoiceDetailPage } from "./pages/InvoiceDetailPage";
+import { GstReportPage } from "./pages/GstReportPage";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AppShell } from "./components/AppShell";
 
@@ -29,6 +30,7 @@ export default function App() {
                     <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
                     <Route path="/clients" element={<ClientsPage />} />
                     <Route path="/settings" element={<SettingsPage />} />
+                    <Route path="/reports/gst" element={<GstReportPage />} />
                   </Routes>
                 </AppShell>
               </ProtectedRoute>
