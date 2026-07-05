@@ -60,6 +60,7 @@ export function InvoicePDF({
           </View>
         </View>
 
+        {/* No ₹ prefix here: default PDF font (Helvetica) can't render the ₹ glyph */}
         <View style={styles.table}>
           <View style={styles.tableRow}>
             <Text style={styles.tableHeaderCell}>Description</Text>

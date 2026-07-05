@@ -1,12 +1,9 @@
 import { useState } from "react";
 import { useGstReport, gstReportCsvUrl } from "../api/reports";
+import { currentMonth } from "../lib/date";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
 import { Label } from "../components/ui/Label";
-
-function currentMonth(): string {
-  return new Date().toISOString().slice(0, 7);
-}
 
 export function GstReportPage() {
   const [month, setMonth] = useState(currentMonth());

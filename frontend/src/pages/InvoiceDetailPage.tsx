@@ -8,6 +8,7 @@ import { useInvoice, useInvoiceChildren, useDeleteInvoice } from "../api/invoice
 import { useRecordPayment } from "../api/payments";
 import { useCompanyProfile } from "../api/company";
 import { ApiError } from "../api/client";
+import { todayIsoDate } from "../lib/date";
 import { StatusBadge } from "../components/StatusBadge";
 import { InvoicePDF } from "../components/InvoicePDF";
 import { Button } from "../components/ui/Button";
@@ -24,10 +25,6 @@ const paymentSchema = z.object({
 });
 
 type PaymentForm = z.infer<typeof paymentSchema>;
-
-function todayIsoDate(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 export function InvoiceDetailPage() {
   const { id = "" } = useParams();
