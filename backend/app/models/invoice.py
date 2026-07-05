@@ -33,6 +33,7 @@ class InvoiceCreate(BaseModel):
     invoice_date: date
     due_date: date
     client_id: str
+    tax_type: Literal["CGST_SGST", "IGST"] | None = None
     line_items: list[LineItem]
 
 

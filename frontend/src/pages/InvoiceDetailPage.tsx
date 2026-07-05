@@ -37,11 +37,13 @@ export function InvoiceDetailPage() {
   const recordPayment = useRecordPayment(id);
   const deleteInvoice = useDeleteInvoice();
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
 
   const {
     register,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<PaymentForm>({
     resolver: zodResolver(paymentSchema),
@@ -52,11 +54,25 @@ export function InvoiceDetailPage() {
     return <div className="text-slate-500">Loading…</div>;
   }
 
+  const toggleItemIndex = (index: number, checked: boolean) => {
+    const next = checked ? [...selectedIndices, index] : selectedIndices.filter((i) => i !== index);
+    setSelectedIndices(next);
+    const remaining = invoice.remaining_line_items ?? [];
+    const sum = next.reduce((total, i) => total + (remaining[i]?.total ?? 0), 0);
+    setValue("amount", (next.length > 0 ? Math.round(sum * 100) / 100 : undefined) as number, {
+      shouldValidate: true,
+    });
+  };
+
   const onRecordPayment = async (values: PaymentForm) => {
     setPaymentError(null);
     try {
-      await recordPayment.mutateAsync(values);
+      await recordPayment.mutateAsync({
+        ...values,
+        selected_indices: selectedIndices.length > 0 ? selectedIndices : undefined,
+      });
       reset({ amount: undefined, date: todayIsoDate(), mode: "Cash", note: "" });
+      setSelectedIndices([]);
     } catch (err) {
       setPaymentError(err instanceof ApiError ? err.message : "Failed to record payment");
     }
@@ -119,6 +135,8 @@ export function InvoiceDetailPage() {
                 <th className="py-2">GST %</th>
                 <th className="py-2">Qty</th>
                 <th className="py-2">Rate</th>
+                <th className="py-2">Amount</th>
+                <th className="py-2">GST Amt</th>
                 <th className="py-2">Total</th>
               </tr>
             </thead>
@@ -130,6 +148,8 @@ export function InvoiceDetailPage() {
                   <td className="py-2">{item.gst_rate}%</td>
                   <td className="py-2">{item.quantity}</td>
                   <td className="py-2">₹{item.rate.toFixed(2)}</td>
+                  <td className="py-2">₹{item.amount.toFixed(2)}</td>
+                  <td className="py-2">₹{item.gst_amount.toFixed(2)}</td>
                   <td className="py-2">₹{item.total.toFixed(2)}</td>
                 </tr>
               ))}
@@ -141,24 +161,28 @@ export function InvoiceDetailPage() {
               <span>Subtotal</span>
               <span>₹{invoice.subtotal.toFixed(2)}</span>
             </div>
+            <div className="flex justify-between text-slate-500">
+              <span>Total GST</span>
+              <span>₹{(invoice.cgst_total + invoice.sgst_total + invoice.igst_total).toFixed(2)}</span>
+            </div>
             {invoice.tax_type === "CGST_SGST" ? (
               <>
-                <div className="flex justify-between">
+                <div className="flex justify-between pl-4 text-slate-500">
                   <span>CGST</span>
                   <span>₹{invoice.cgst_total.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between pl-4 text-slate-500">
                   <span>SGST</span>
                   <span>₹{invoice.sgst_total.toFixed(2)}</span>
                 </div>
               </>
             ) : (
-              <div className="flex justify-between">
+              <div className="flex justify-between pl-4 text-slate-500">
                 <span>IGST</span>
                 <span>₹{invoice.igst_total.toFixed(2)}</span>
               </div>
             )}
-            <div className="flex justify-between font-semibold">
+            <div className="flex justify-between border-t border-slate-200 pt-1 font-semibold">
               <span>Grand Total</span>
               <span>₹{invoice.grand_total.toFixed(2)}</span>
             </div>
@@ -212,9 +236,41 @@ export function InvoiceDetailPage() {
               <form className="max-w-sm space-y-3" onSubmit={handleSubmit(onRecordPayment)}>
                 <p className="text-sm text-slate-500">Remaining balance: ₹{invoice.balance.toFixed(2)}</p>
                 {paymentError && <Alert variant="destructive">{paymentError}</Alert>}
+
+                {invoice.remaining_line_items && invoice.remaining_line_items.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Select items to invoice (optional)</Label>
+                    <div className="space-y-1 rounded-md border border-slate-200 p-2">
+                      {invoice.remaining_line_items.map((item, index) => (
+                        <label key={index} className="flex items-center justify-between gap-2 text-sm">
+                          <span className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={selectedIndices.includes(index)}
+                              onChange={(e) => toggleItemIndex(index, e.target.checked)}
+                            />
+                            {item.description} (Qty: {item.quantity})
+                          </span>
+                          <span>₹{item.total.toFixed(2)}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <p className="text-xs text-slate-400">
+                      Check items to auto-fill the amount from their exact total, or leave unchecked to
+                      enter a custom amount.
+                    </p>
+                  </div>
+                )}
+
                 <div className="space-y-1">
                   <Label htmlFor="amount">Amount</Label>
-                  <Input id="amount" type="number" step="0.01" {...register("amount")} />
+                  <Input
+                    id="amount"
+                    type="number"
+                    step="0.01"
+                    disabled={selectedIndices.length > 0}
+                    {...register("amount")}
+                  />
                   {errors.amount && <p className="text-sm text-red-600">{errors.amount.message}</p>}
                 </div>
                 <div className="space-y-1">

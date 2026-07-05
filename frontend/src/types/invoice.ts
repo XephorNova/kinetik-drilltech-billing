@@ -53,5 +53,6 @@ export interface InvoiceCreateInput {
   invoice_date: string;
   due_date: string;
   client_id: string;
+  tax_type?: "CGST_SGST" | "IGST" | null;
   line_items: LineItem[];
 }

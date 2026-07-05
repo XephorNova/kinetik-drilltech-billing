@@ -37,6 +37,7 @@ async def _gst_report_rows(db, month: str) -> list[dict]:
     async for child in db.invoices.find(query).sort("invoice_date", 1):
         rows.append(
             {
+                "id": str(child["_id"]),
                 "invoice_no": child["invoice_no"],
                 "client_name": child["client_snapshot"]["name"],
                 "date": child["invoice_date"],
@@ -79,6 +80,7 @@ async def gst_report_csv(month: str, db=Depends(get_db), _user: str = Depends(ge
             "invoice_no", "client_name", "date", "amount",
             "taxable_portion", "cgst", "sgst", "igst", "gst_portion",
         ],
+        extrasaction="ignore",
     )
     writer.writeheader()
     writer.writerows(rows)

@@ -127,7 +127,7 @@ async def create_invoice(
             detail="Set up company profile before creating invoices",
         )
 
-    tax_type = derive_tax_type(company["state"], client["state"])
+    tax_type = payload.tax_type or derive_tax_type(company["state"], client["state"])
     line_items_computed = [compute_line_item(li) for li in payload.line_items]
     totals = compute_invoice_totals(line_items_computed, tax_type)
 

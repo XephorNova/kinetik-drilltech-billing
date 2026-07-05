@@ -7,13 +7,15 @@ from app.models.invoice import InvoiceResponse
 
 
 class PaymentCreate(BaseModel):
-    amount: float
+    amount: float | None = None
     date: date
     mode: Literal["Cash", "Bank Transfer", "UPI", "Cheque", "Other"]
     note: str | None = None
+    selected_indices: list[int] | None = None
 
 
 class PaymentResponse(PaymentCreate):
+    amount: float
     id: str
     invoice_id: str
     child_invoice_id: str

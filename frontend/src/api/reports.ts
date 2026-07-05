@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "./client";
 
 export interface GstReportRow {
+  id: string;
   invoice_no: string;
   client_name: string;
   date: string;

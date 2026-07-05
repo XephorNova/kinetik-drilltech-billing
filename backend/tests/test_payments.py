@@ -131,6 +131,95 @@ async def test_cannot_record_payment_against_a_child_invoice(authed_client):
     assert resp.status_code == 400
 
 
+async def _create_multi_item_invoice(authed_client):
+    await authed_client.put("/company-profile", json=COMPANY_PAYLOAD)
+    client_resp = await authed_client.post("/clients", json=CLIENT_PAYLOAD)
+    client_id = client_resp.json()["id"]
+    payload = {
+        "invoice_no": "202607/SKW/KDT",
+        "invoice_date": "2026-07-05",
+        "due_date": "2026-07-12",
+        "client_id": client_id,
+        "line_items": [
+            {"description": "Bore hole no 1", "hsn_sac": "995432", "gst_rate": 18.0, "quantity": 10, "rate": 1000},
+            {"description": "Bore hole no 2", "hsn_sac": "995432", "gst_rate": 18.0, "quantity": 5, "rate": 2000},
+            {"description": "Mobilization", "hsn_sac": "995432", "gst_rate": 18.0, "quantity": 1, "rate": 3000},
+        ],
+    }
+    resp = await authed_client.post("/invoices", json=payload)
+    return resp.json()
+
+
+async def test_payment_with_single_selected_index_creates_exact_child_invoice(authed_client):
+    invoice = await _create_multi_item_invoice(authed_client)
+    # item 0: Bore hole no 1, total 11800.0
+
+    resp = await authed_client.post(
+        f"/invoices/{invoice['id']}/payments",
+        json={"date": "2026-07-10", "mode": "Cash", "selected_indices": [0]},
+    )
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["payment"]["amount"] == 11800.0
+    assert body["child_invoice"]["grand_total"] == 11800.0
+    assert len(body["child_invoice"]["line_items"]) == 1
+    assert body["child_invoice"]["line_items"][0]["description"] == "Bore hole no 1"
+
+    get_resp = await authed_client.get(f"/invoices/{invoice['id']}")
+    parent = get_resp.json()
+    assert len(parent["remaining_line_items"]) == 2
+    descriptions = [li["description"] for li in parent["remaining_line_items"]]
+    assert descriptions == ["Bore hole no 2", "Mobilization"]
+
+
+async def test_payment_with_multiple_selected_indices_creates_combined_child_invoice(authed_client):
+    invoice = await _create_multi_item_invoice(authed_client)
+    # item 1: Bore hole no 2, total 11800.0; item 2: Mobilization, total 3540.0
+
+    resp = await authed_client.post(
+        f"/invoices/{invoice['id']}/payments",
+        json={"date": "2026-07-10", "mode": "Cash", "selected_indices": [2, 1]},
+    )
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["payment"]["amount"] == 15340.0
+    assert body["child_invoice"]["grand_total"] == 15340.0
+    child_descriptions = [li["description"] for li in body["child_invoice"]["line_items"]]
+    assert child_descriptions == ["Bore hole no 2", "Mobilization"]
+
+    get_resp = await authed_client.get(f"/invoices/{invoice['id']}")
+    parent = get_resp.json()
+    assert len(parent["remaining_line_items"]) == 1
+    assert parent["remaining_line_items"][0]["description"] == "Bore hole no 1"
+
+
+async def test_payment_with_out_of_range_index_is_rejected(authed_client):
+    invoice = await _create_multi_item_invoice(authed_client)
+    resp = await authed_client.post(
+        f"/invoices/{invoice['id']}/payments",
+        json={"date": "2026-07-10", "mode": "Cash", "selected_indices": [5]},
+    )
+    assert resp.status_code == 400
+
+
+async def test_payment_with_duplicate_indices_is_rejected(authed_client):
+    invoice = await _create_multi_item_invoice(authed_client)
+    resp = await authed_client.post(
+        f"/invoices/{invoice['id']}/payments",
+        json={"date": "2026-07-10", "mode": "Cash", "selected_indices": [0, 0]},
+    )
+    assert resp.status_code == 400
+
+
+async def test_payment_without_amount_or_selected_indices_is_rejected(authed_client):
+    invoice = await _create_multi_item_invoice(authed_client)
+    resp = await authed_client.post(
+        f"/invoices/{invoice['id']}/payments",
+        json={"date": "2026-07-10", "mode": "Cash"},
+    )
+    assert resp.status_code == 400
+
+
 async def test_list_payments_for_invoice(authed_client):
     invoice = await _create_invoice(authed_client)
     await authed_client.post(

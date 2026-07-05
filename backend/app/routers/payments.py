@@ -56,12 +56,34 @@ async def add_payment(
         )
 
     remaining_line_items = parent.get("remaining_line_items") or []
-    amount = round(payload.amount, 2)
 
-    try:
-        consumed, updated_remaining = split_remaining_items(remaining_line_items, amount)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    if payload.selected_indices:
+        indices = payload.selected_indices
+        if len(set(indices)) != len(indices):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="duplicate item indices selected"
+            )
+        if any(i < 0 or i >= len(remaining_line_items) for i in indices):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="item index out of range"
+            )
+        selected_set = set(indices)
+        consumed = [remaining_line_items[i] for i in sorted(selected_set)]
+        updated_remaining = [
+            item for idx, item in enumerate(remaining_line_items) if idx not in selected_set
+        ]
+        amount = round(sum(item["total"] for item in consumed), 2)
+    else:
+        if payload.amount is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="amount is required when no items are selected",
+            )
+        amount = round(payload.amount, 2)
+        try:
+            consumed, updated_remaining = split_remaining_items(remaining_line_items, amount)
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
     totals = compute_invoice_totals(consumed, parent["tax_type"])
 

@@ -83,6 +83,23 @@ async def test_gst_report_excludes_payments_outside_month(authed_client):
     assert summary["total_received"] == 0.0
 
 
+async def test_gst_report_rows_include_child_invoice_id(authed_client):
+    invoice = await _create_invoice(authed_client, CLIENT_PAYLOAD, "202607/SKW/KDT", rate=1000, quantity=10)
+    payment_resp = await authed_client.post(
+        f"/invoices/{invoice['id']}/payments",
+        json={"amount": 11800.0, "date": "2026-07-15", "mode": "Bank Transfer"},
+    )
+    child_id = payment_resp.json()["child_invoice"]["id"]
+
+    resp = await authed_client.get("/reports/gst", params={"month": "2026-07"})
+    row = resp.json()["payments"][0]
+    assert row["id"] == child_id
+
+    get_child_resp = await authed_client.get(f"/invoices/{row['id']}")
+    assert get_child_resp.status_code == 200
+    assert get_child_resp.json()["invoice_no"] == row["invoice_no"]
+
+
 async def test_gst_report_csv_download(authed_client):
     invoice = await _create_invoice(authed_client, CLIENT_PAYLOAD, "202607/SKW/KDT", rate=1000, quantity=10)
     await authed_client.post(

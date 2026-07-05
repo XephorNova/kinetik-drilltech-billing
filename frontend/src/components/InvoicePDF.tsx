@@ -12,7 +12,9 @@ const styles = StyleSheet.create({
   table: { marginTop: 8, border: "1pt solid #ddd" },
   tableRow: { flexDirection: "row", borderBottom: "1pt solid #ddd" },
   tableHeaderCell: { flex: 1, padding: 4, fontWeight: 700, backgroundColor: "#f3f4f6" },
+  tableHeaderCellWide: { flex: 2, padding: 4, fontWeight: 700, backgroundColor: "#f3f4f6" },
   tableCell: { flex: 1, padding: 4 },
+  tableCellWide: { flex: 2, padding: 4 },
   totals: { marginTop: 12, alignSelf: "flex-end", width: 200 },
   totalsRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 2 },
   totalsGrand: { fontWeight: 700, borderTop: "1pt solid #ddd", paddingTop: 4 },
@@ -63,20 +65,24 @@ export function InvoicePDF({
         {/* No ₹ prefix here: default PDF font (Helvetica) can't render the ₹ glyph */}
         <View style={styles.table}>
           <View style={styles.tableRow}>
-            <Text style={styles.tableHeaderCell}>Description</Text>
+            <Text style={styles.tableHeaderCellWide}>Description</Text>
             <Text style={styles.tableHeaderCell}>HSN/SAC</Text>
             <Text style={styles.tableHeaderCell}>GST%</Text>
             <Text style={styles.tableHeaderCell}>Qty</Text>
             <Text style={styles.tableHeaderCell}>Rate</Text>
+            <Text style={styles.tableHeaderCell}>Amount</Text>
+            <Text style={styles.tableHeaderCell}>GST Amt</Text>
             <Text style={styles.tableHeaderCell}>Total</Text>
           </View>
           {invoice.line_items.map((item, index) => (
             <View style={styles.tableRow} key={index}>
-              <Text style={styles.tableCell}>{item.description}</Text>
+              <Text style={styles.tableCellWide}>{item.description}</Text>
               <Text style={styles.tableCell}>{item.hsn_sac}</Text>
               <Text style={styles.tableCell}>{item.gst_rate}%</Text>
               <Text style={styles.tableCell}>{item.quantity}</Text>
               <Text style={styles.tableCell}>{item.rate.toFixed(2)}</Text>
+              <Text style={styles.tableCell}>{item.amount.toFixed(2)}</Text>
+              <Text style={styles.tableCell}>{item.gst_amount.toFixed(2)}</Text>
               <Text style={styles.tableCell}>{item.total.toFixed(2)}</Text>
             </View>
           ))}
@@ -87,20 +93,24 @@ export function InvoicePDF({
             <Text>Subtotal</Text>
             <Text>{invoice.subtotal.toFixed(2)}</Text>
           </View>
+          <View style={styles.totalsRow}>
+            <Text>Total GST</Text>
+            <Text>{(invoice.cgst_total + invoice.sgst_total + invoice.igst_total).toFixed(2)}</Text>
+          </View>
           {invoice.tax_type === "CGST_SGST" ? (
             <>
               <View style={styles.totalsRow}>
-                <Text>CGST</Text>
+                <Text>  CGST</Text>
                 <Text>{invoice.cgst_total.toFixed(2)}</Text>
               </View>
               <View style={styles.totalsRow}>
-                <Text>SGST</Text>
+                <Text>  SGST</Text>
                 <Text>{invoice.sgst_total.toFixed(2)}</Text>
               </View>
             </>
           ) : (
             <View style={styles.totalsRow}>
-              <Text>IGST</Text>
+              <Text>  IGST</Text>
               <Text>{invoice.igst_total.toFixed(2)}</Text>
             </View>
           )}

@@ -18,6 +18,7 @@ export interface PaymentInput {
   date: string;
   mode: Payment["mode"];
   note?: string;
+  selected_indices?: number[];
 }
 
 export interface PaymentCreateResponse {

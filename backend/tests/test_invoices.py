@@ -344,6 +344,64 @@ async def test_delete_invoice_cascades_to_children_and_payments(authed_client, m
     assert await mock_db.payments.count_documents({"invoice_id": parent_id}) == 0
 
 
+async def test_create_invoice_explicit_igst_overrides_same_state_auto_detection(authed_client):
+    client_id = await _setup_company_and_client(authed_client)
+    payload = {
+        "invoice_no": "202607/SKW/KDT",
+        "invoice_date": "2026-07-05",
+        "due_date": "2026-07-12",
+        "client_id": client_id,
+        "tax_type": "IGST",
+        "line_items": [
+            {"description": "Bore hole no 1", "hsn_sac": "995432", "gst_rate": 18.0, "quantity": 10, "rate": 1000}
+        ],
+    }
+    resp = await authed_client.post("/invoices", json=payload)
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["tax_type"] == "IGST"
+    assert body["igst_total"] == 1800.0
+    assert body["cgst_total"] == 0.0
+    assert body["sgst_total"] == 0.0
+
+
+async def test_create_invoice_explicit_cgst_sgst_overrides_different_state_auto_detection(authed_client):
+    client_id = await _setup_company_and_client(authed_client, OUT_OF_STATE_CLIENT_PAYLOAD)
+    payload = {
+        "invoice_no": "202607/GUJ/KDT",
+        "invoice_date": "2026-07-05",
+        "due_date": "2026-07-12",
+        "client_id": client_id,
+        "tax_type": "CGST_SGST",
+        "line_items": [
+            {"description": "Bore hole no 1", "hsn_sac": "995432", "gst_rate": 18.0, "quantity": 10, "rate": 1000}
+        ],
+    }
+    resp = await authed_client.post("/invoices", json=payload)
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["tax_type"] == "CGST_SGST"
+    assert body["cgst_total"] == 900.0
+    assert body["sgst_total"] == 900.0
+    assert body["igst_total"] == 0.0
+
+
+async def test_create_invoice_without_tax_type_still_auto_detects(authed_client):
+    client_id = await _setup_company_and_client(authed_client, OUT_OF_STATE_CLIENT_PAYLOAD)
+    payload = {
+        "invoice_no": "202607/GUJ/KDT",
+        "invoice_date": "2026-07-05",
+        "due_date": "2026-07-12",
+        "client_id": client_id,
+        "line_items": [
+            {"description": "Bore hole no 1", "hsn_sac": "995432", "gst_rate": 18.0, "quantity": 10, "rate": 1000}
+        ],
+    }
+    resp = await authed_client.post("/invoices", json=payload)
+    assert resp.status_code == 201
+    assert resp.json()["tax_type"] == "IGST"
+
+
 async def test_cannot_delete_child_invoice_directly(authed_client, mock_db):
     client_id = await _setup_company_and_client(authed_client)
     payload = {

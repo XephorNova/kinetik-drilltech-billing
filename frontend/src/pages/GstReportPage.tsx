@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useGstReport, gstReportCsvUrl } from "../api/reports";
 import { currentMonth } from "../lib/date";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
@@ -57,16 +58,22 @@ export function GstReportPage() {
                     <th className="py-2">Date</th>
                     <th className="py-2">Amount</th>
                     <th className="py-2">GST</th>
+                    <th className="py-2"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {report.payments.map((row, index) => (
-                    <tr key={index} className="border-b border-slate-100">
+                  {report.payments.map((row) => (
+                    <tr key={row.id} className="border-b border-slate-100">
                       <td className="py-2">{row.invoice_no}</td>
                       <td className="py-2">{row.client_name}</td>
                       <td className="py-2">{row.date}</td>
                       <td className="py-2">₹{row.amount.toFixed(2)}</td>
                       <td className="py-2">₹{row.gst_portion.toFixed(2)}</td>
+                      <td className="py-2">
+                        <Link to={`/invoices/${row.id}`} className="text-slate-900 hover:underline">
+                          View / Print
+                        </Link>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
