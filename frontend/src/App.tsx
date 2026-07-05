@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { LoginPage } from "./pages/LoginPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { ClientsPage } from "./pages/ClientsPage";
+import { InvoiceCreatePage } from "./pages/InvoiceCreatePage";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AppShell } from "./components/AppShell";
 
@@ -22,6 +23,7 @@ export default function App() {
                   <Routes>
                     <Route path="/" element={<Navigate to="/invoices" replace />} />
                     <Route path="/clients" element={<ClientsPage />} />
+                    <Route path="/invoices/new" element={<InvoiceCreatePage />} />
                     <Route path="/settings" element={<SettingsPage />} />
                   </Routes>
                 </AppShell>
