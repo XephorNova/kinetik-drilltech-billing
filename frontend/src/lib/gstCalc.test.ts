@@ -67,15 +67,17 @@ describe("computeInvoiceTotals", () => {
     expect(totals.igst_total).toBe(180);
   });
 
-  it("rounds the same way Python's round() does for a floating-point tie (35.855 -> 35.85, not 35.86)", () => {
-    // quantity * rate = 35.855 exactly as a JS/Python double; Python's round(35.855, 2) == 35.85
+  it("rounds the same way Python's round() does for a floating-point tie at magnitude ~1 (1.005 rounds to 1, not 1.01)", () => {
+    // quantity * rate = 1.005 exactly as a JS/Python double; 1.005 * 100 = 100.499...
+    // Math.round(100.499...) = 100 (rounds to nearest even); 100/100 = 1
+    // This proves the fix: without the old epsilon correction, we match Python's round(1.005, 2) == 1.0
     const computed = computeLineItem({
       description: "x",
       hsn_sac: "995432",
       gst_rate: 0,
-      quantity: 35.855,
+      quantity: 1.005,
       rate: 1,
     });
-    expect(computed.amount).toBe(35.85);
+    expect(computed.amount).toBe(1);
   });
 });
