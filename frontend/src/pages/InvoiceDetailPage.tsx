@@ -30,7 +30,7 @@ export function InvoiceDetailPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const { data: invoice, isLoading } = useInvoice(id);
-  const isParent = invoice ? invoice.parent_id === null : true;
+  const isParent = invoice ? invoice.parent_id === null : false;
   const { data: children } = useInvoiceChildren(isParent ? id : "");
   const recordPayment = useRecordPayment(id);
   const deleteInvoice = useDeleteInvoice();
