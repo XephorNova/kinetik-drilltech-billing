@@ -66,4 +66,16 @@ describe("computeInvoiceTotals", () => {
     expect(totals.sgst_total).toBe(0);
     expect(totals.igst_total).toBe(180);
   });
+
+  it("rounds the same way Python's round() does for a floating-point tie (35.855 -> 35.85, not 35.86)", () => {
+    // quantity * rate = 35.855 exactly as a JS/Python double; Python's round(35.855, 2) == 35.85
+    const computed = computeLineItem({
+      description: "x",
+      hsn_sac: "995432",
+      gst_rate: 0,
+      quantity: 35.855,
+      rate: 1,
+    });
+    expect(computed.amount).toBe(35.85);
+  });
 });

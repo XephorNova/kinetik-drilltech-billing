@@ -23,8 +23,10 @@ export interface InvoiceTotals {
   gst_ratio: number;
 }
 
+// Intentionally no epsilon correction: this matches Python's plain round(), which also
+// doesn't correct for float representation error - adding one would diverge from the backend at real invoice magnitudes.
 function round2(value: number): number {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
+  return Math.round(value * 100) / 100;
 }
 
 export function deriveTaxType(companyState: string, clientState: string): TaxType {
