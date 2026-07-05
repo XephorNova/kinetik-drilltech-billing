@@ -17,3 +17,14 @@ export function useCreateInvoice() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["invoices"] }),
   });
 }
+
+export function useInvoices(filters: { clientId?: string; status?: string } = {}) {
+  const params = new URLSearchParams();
+  if (filters.clientId) params.set("client_id", filters.clientId);
+  if (filters.status) params.set("status", filters.status);
+  const query = params.toString();
+  return useQuery({
+    queryKey: ["invoices", "list", filters],
+    queryFn: () => apiFetch<Invoice[]>(`/invoices${query ? `?${query}` : ""}`),
+  });
+}
