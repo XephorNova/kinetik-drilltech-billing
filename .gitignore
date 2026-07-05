@@ -2,6 +2,19 @@
 __pycache__/
 *.pyc
 .env
+frontend/.env
+backend/.env
 node_modules/
 dist/
 .pytest_cache/
+*.pdf
+*.log
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Claude Code harness (machine-local settings and ephemeral worktrees)
+.claude/
