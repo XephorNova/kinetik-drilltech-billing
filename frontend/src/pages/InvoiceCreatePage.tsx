@@ -15,13 +15,21 @@ import { Alert } from "../components/ui/Alert";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
 
 function todayIsoDate(): string {
-  return new Date().toISOString().slice(0, 10);
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function addDays(iso: string, days: number): string {
-  const date = new Date(iso);
+  const [year, month, day] = iso.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
   date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 export function InvoiceCreatePage() {
@@ -57,6 +65,10 @@ export function InvoiceCreatePage() {
     setErrorMessage(null);
     if (!clientId) {
       setErrorMessage("Select a client first.");
+      return;
+    }
+    if (!effectiveInvoiceNo) {
+      setErrorMessage("Invoice number is required.");
       return;
     }
     try {
